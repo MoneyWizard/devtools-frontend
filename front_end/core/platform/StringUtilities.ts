@@ -358,13 +358,16 @@ export const compare = (a: string, b: string): number => {
 };
 
 /** Returns a string that has no more than maxLength characters. Actual graphemes are used, not bytes. */
+const graphemeSegmenter = new Intl.Segmenter(undefined, {granularity: 'grapheme'});
+
 export const trimMiddle = (str: string, maxLength: number): string => {
   // Early return for the case where there are fewer bytes than the character limit.
   if (str.length <= maxLength) {
     return str;
   }
 
-  const segmenter = new Intl.Segmenter(undefined, {granularity: 'grapheme'});
+  // Reuse the segmenter across calls; constructing it per invocation is noticeably
+  // more expensive in large UI trees that trim many strings on each render.
 
   // If the max length is so small it can't fit the ellipsis, just return the ellipsis.
   const ellipsis = '…';
@@ -388,7 +391,7 @@ export const trimMiddle = (str: string, maxLength: number): string => {
 
   // This function would be significantly simpler if we created an array of all the
   // segments upfront, but could result in poor performance for large input strings.
-  for (const {segment, index} of segmenter.segment(str)) {
+  for (const {segment, index} of graphemeSegmenter.segment(str)) {
     currentGraphemeCount++;
 
     // Mark the byte index where the "Left Half" ends
@@ -424,8 +427,7 @@ export const trimEndWithMaxLength = (str: string, maxLength: number): string => 
 
   const ellipsis = '…';
   const ellipsisLength = 1;
-  const segmenter = new Intl.Segmenter(undefined, {granularity: 'grapheme'});
-  const iterator = segmenter.segment(str)[Symbol.iterator]();
+  const iterator = graphemeSegmenter.segment(str)[Symbol.iterator]();
 
   let lastSegmentIndex = 0;
   for (let i = 0; i <= maxLength - ellipsisLength; i++) {
